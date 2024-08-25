@@ -1,5 +1,15 @@
 const { successHandler, errorHandler } = require("../../utils/responseHandler");
 const HotelListing = require("../../model/hotelListing.model");
+const { default: axios } = require("axios");
+const https = require("https");
+const { constants } = require("crypto");
+
+const agent = new https.Agent({
+  secureOptions:
+    constants.SSL_OP_LEGACY_SERVER_CONNECT |
+    constants.SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION,
+  rejectUnauthorized: false, // Disable certificate validation (not recommended for production)
+});
 
 const HotelListingPOSTAPI = async (req, res, next) => {
   try {
@@ -334,6 +344,103 @@ const HotelListingDescGETAllAPI = async (req, res, next) => {
   }
 };
 
+const HotelData = async (req, res, next) => {
+  try {
+    let { checkInDate, checkOutDate, noOfRoom, noOfAdt, noOfChd, name } =
+      req.query;
+    checkInDate = checkInDate.toString();
+    checkOutDate = checkOutDate.toString();
+    noOfRoom = noOfRoom.toString();
+    noOfAdt = noOfAdt.toString();
+    noOfChd = noOfChd.toString();
+    name = name.toString();
+
+    let payload = {
+      id: "-1",
+      checkInDate,
+      checkOutDate,
+      noOfRoom,
+      noOfAdt,
+      noOfPax: "2",
+      noOfChd,
+      type: "City",
+      affilId: "",
+      name: name,
+      fullName: name,
+    };
+    const response = await axios.post(
+      "https://www.hotels.irctc.co.in/tourismUser/tourism/hotel/searchhotel",
+      { ...payload, limit: 100 },
+      { httpsAgent: agent }
+    );
+    const filterData = response.data.data.hotelDetailsSummary.slice(0, 100);
+    return successHandler(res, "Hotel listing fetched successfully", 200, {
+      filterData,
+    });
+  } catch (error) {
+    console.log("Error", error);
+    return next(errorHandler(res, error.message, 500));
+  }
+};
+
+const HotelByID = async (req, res, next) => {
+  try {
+    let {
+      hotelCode,
+      checkInDate,
+      checkOutDate,
+      noOfAdt,
+      noOfChd,
+      noOfRoom,
+      provider,
+      fullName,
+      name,
+    } = req.query;
+    hotelCode = hotelCode.toString();
+    checkInDate = checkInDate.toString();
+    checkOutDate = checkOutDate.toString();
+    noOfRoom = noOfRoom.toString();
+    noOfAdt = noOfAdt.toString();
+    noOfChd = noOfChd.toString();
+    provider = provider.toString();
+    fullName = fullName.toString();
+    name = name.toString();
+
+    let payload = {
+      hotelCode,
+      checkInDate,
+      checkOutDate,
+      noOfRoom,
+      noOfAdt,
+      noOfPax: "2",
+      noOfChd,
+      type: "Hotel",
+      roomTypeId: "",
+      hotelStateCode: "",
+      passengerStateCode: "",
+      provider,
+      affilId: "",
+      searchKeys: {
+        fullName: `${fullName},${fullName}`,
+        name,
+        type: "Hotel",
+      },
+    };
+    const response = await axios.post(
+      "https://www.hotels.irctc.co.in/tourismUser/tourism/hotel/hoteldetails",
+      payload,
+      { httpsAgent: agent }
+    );
+
+    return successHandler(res, "Hotel listing fetched successfully", 200, {
+      data: response.data,
+    });
+  } catch (error) {
+    console.log("Error", error);
+    return next(errorHandler(res, error.message, 500));
+  }
+};
+
 module.exports = {
   HotelListingPOSTAPI,
   HotelListingGETAPI,
@@ -342,4 +449,6 @@ module.exports = {
   HotelListingUpdateAPI,
   HotelListingGETAllAPI,
   HotelListingDescGETAllAPI,
+  HotelData,
+  HotelByID
 };

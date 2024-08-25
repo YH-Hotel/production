@@ -72,10 +72,22 @@ const payments = async (req, res, next) => {
         }
 
         if (
-          response.data.status === "captured" &&
-          response.data.notes.serviceType.toLowerCase() === "hotel"
+          (response.data.status === "captured" &&
+            response.data.notes.serviceType.toLowerCase() === "hotel") ||
+          response.data.notes.serviceType.toLowerCase() === "apartment"
         ) {
           await hotelData(
+            response.data,
+            razorpay_payment_id,
+            razorpay_order_id,
+            razorpay_signature
+          );
+        }
+        if (
+          response.data.status === "captured" &&
+          response.data.notes.serviceType.toLowerCase() === "flight"
+        ) {
+          await FlightData(
             response.data,
             razorpay_payment_id,
             razorpay_order_id,
@@ -224,9 +236,41 @@ const hotelData = async (
     date_of_booking: value.notes.dateOfBooking,
     passenger_name: value.notes.passengerName,
   };
+  let srchType =
+    value.notes.serviceType === "apartment" ? "Apartment" : "Hotel";
   let obj_mytrip = {
-    to: value.notes.location,
-    from: value.notes.location,
+    to: value.notes.location || "NA",
+    from: value.notes.location || "NA",
+    dateOfBooking: value.notes.dateOfBooking,
+    serviceType: srchType,
+    amount: Number(value.notes.total_amount),
+    passengerName: value.notes.passengerName,
+    mobileNumber: Number(value.notes.mobileNumber),
+    email: value.notes.email,
+    transactionId: value.id,
+    modeofPayment: value.method,
+  };
+  let paymentData = {
+    mobileNumber: Number(value.notes.mobileNumber),
+    razorpay_payment_id: razorpay_payment_id,
+    razorpay_order_id: razorpay_order_id,
+    razorpay_signature: razorpay_signature,
+    amount: Number(value.notes.total_amount),
+  };
+  await MyTrip.create(obj_mytrip);
+  await BookingHotel.create(obj_data);
+  await Payments.create(paymentData);
+};
+
+const FlightData = async (
+  value,
+  razorpay_payment_id,
+  razorpay_order_id,
+  razorpay_signature
+) => {
+  let obj_mytrip = {
+    to: value.notes.to,
+    from: value.notes.from,
     dateOfBooking: value.notes.dateOfBooking,
     serviceType: value.notes.serviceType,
     amount: Number(value.notes.total_amount),
@@ -244,7 +288,6 @@ const hotelData = async (
     amount: Number(value.notes.total_amount),
   };
   await MyTrip.create(obj_mytrip);
-  await BookingHotel.create(obj_data);
   await Payments.create(paymentData);
 };
 
